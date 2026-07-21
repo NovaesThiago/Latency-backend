@@ -11,4 +11,5 @@ function required(name: string, fallback?: string): string {
 export const env = {
   port: Number(process.env.PORT ?? 3333),
   corsOrigin: required('CORS_ORIGIN', 'http://localhost:5173'),
+  jwtSecret: required('JWT_SECRET'),
 };
