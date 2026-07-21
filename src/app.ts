@@ -6,6 +6,7 @@ import { swaggerSpec } from './config/swagger';
 import { AppError } from './middlewares/AppError';
 import { errorHandler } from './middlewares/errorHandler';
 import { authRoutes } from './routes/authRoutes';
+import { cardRoutes } from './routes/cardRoutes';
 
 export const app = express();
 
@@ -19,6 +20,7 @@ app.get('/health', (_req, res) => {
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/auth', authRoutes);
+app.use('/cards', cardRoutes);
 
 app.use((_req, _res, next) => {
   next(new AppError('Rota não encontrada', 404));
