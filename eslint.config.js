@@ -8,6 +8,11 @@ module.exports = tseslint.config(
     ignores: ['dist/**', 'node_modules/**'],
   },
   {
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
     files: ['eslint.config.js'],
     languageOptions: {
       globals: { require: 'readonly', module: 'writable' },
