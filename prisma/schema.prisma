@@ -23,7 +23,7 @@ enum Role {
 
 model Card {
   id            String      @id @default(uuid())
-  name          String
+  name          String      @unique
   description   String      @default("")
   type          CardType
   baseAtk       Int

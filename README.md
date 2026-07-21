@@ -9,6 +9,8 @@ Node.js + TypeScript + Express + Prisma ORM + PostgreSQL (Neon) + JWT + Zod + Sw
 ```
 npm install
 cp .env.example .env   # preencher DATABASE_URL e JWT_SECRET
+npx prisma migrate deploy
+npm run db:seed         # popula o catálogo de cartas temático
 npm run dev
 ```
 
@@ -17,6 +19,7 @@ npm run dev
 - `npm run build` — compila o TypeScript para `dist/`
 - `npm start` — roda a versão compilada
 - `npm run lint` — roda o ESLint
+- `npm run db:seed` — popula/atualiza o catálogo de cartas (idempotente, por nome)
 
 ## Deploy (Render + Neon)
 
