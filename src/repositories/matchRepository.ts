@@ -1,5 +1,7 @@
+import { MoveActionType, Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma';
 import { MapNodeData } from '../services/engine/types';
+import { UnitState } from '../services/engine/turn-resolver';
 
 const withBoard = {
   map: { include: { nodes: true } },
@@ -47,5 +49,64 @@ export const matchRepository = {
 
   findById(id: string) {
     return prisma.match.findUnique({ where: { id }, include: withBoard });
+  },
+
+  createFieldUnit(matchId: string, unit: UnitState) {
+    return prisma.fieldUnit.create({
+      data: {
+        id: unit.id,
+        matchId,
+        ownerId: unit.ownerId,
+        cardId: unit.cardId,
+        currentNodeId: unit.currentNodeId,
+        hp: unit.hp,
+        atk: unit.atk,
+        level: unit.level,
+        turnsInPosition: unit.turnsInPosition,
+        status: unit.status,
+      },
+    });
+  },
+
+  updateFieldUnit(unit: UnitState) {
+    return prisma.fieldUnit.update({
+      where: { id: unit.id },
+      data: {
+        currentNodeId: unit.currentNodeId,
+        hp: unit.hp,
+        turnsInPosition: unit.turnsInPosition,
+        status: unit.status,
+      },
+    });
+  },
+
+  async countMoves(matchId: string): Promise<number> {
+    return prisma.matchMove.count({ where: { matchId } });
+  },
+
+  createMove(params: {
+    matchId: string;
+    turnNumber: number;
+    unitId: string | null;
+    fromNodeId: string | null;
+    toNodeId: string | null;
+    actionType: MoveActionType;
+    payload: unknown;
+  }) {
+    return prisma.matchMove.create({
+      data: {
+        matchId: params.matchId,
+        turnNumber: params.turnNumber,
+        unitId: params.unitId,
+        fromNodeId: params.fromNodeId,
+        toNodeId: params.toNodeId,
+        actionType: params.actionType,
+        payload: params.payload as Prisma.InputJsonValue,
+      },
+    });
+  },
+
+  updateMatch(id: string, data: Prisma.MatchUpdateInput) {
+    return prisma.match.update({ where: { id }, data });
   },
 };

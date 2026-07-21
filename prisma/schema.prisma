@@ -8,13 +8,12 @@ datasource db {
 }
 
 model User {
-  id           String      @id @default(uuid())
-  email        String      @unique
+  id           String   @id @default(uuid())
+  email        String   @unique
   passwordHash String
-  role         Role        @default(PLAYER)
+  role         Role     @default(PLAYER)
   decks        Deck[]
-  fieldUnits   FieldUnit[]
-  createdAt    DateTime    @default(now())
+  createdAt    DateTime @default(now())
 }
 
 enum Role {
@@ -61,17 +60,19 @@ model DeckCard {
 }
 
 model Match {
-  id        String      @id @default(uuid())
-  player1Id String
-  player2Id String?
-  isVsCpu   Boolean     @default(false)
-  winnerId  String?
-  status    MatchStatus @default(EM_ANDAMENTO)
-  startedAt DateTime    @default(now())
-  endedAt   DateTime?
-  map       MatchMap?
-  units     FieldUnit[]
-  moves     MatchMove[]
+  id            String      @id @default(uuid())
+  player1Id     String
+  player2Id     String?
+  isVsCpu       Boolean     @default(false)
+  player1CoreHp Int         @default(20)
+  player2CoreHp Int         @default(20)
+  winnerId      String?
+  status        MatchStatus @default(EM_ANDAMENTO)
+  startedAt     DateTime    @default(now())
+  endedAt       DateTime?
+  map           MatchMap?
+  units         FieldUnit[]
+  moves         MatchMove[]
 }
 
 enum MatchStatus {
@@ -115,8 +116,7 @@ model FieldUnit {
   id              String     @id @default(uuid())
   matchId         String
   match           Match      @relation(fields: [matchId], references: [id])
-  ownerId         String
-  owner           User       @relation(fields: [ownerId], references: [id])
+  ownerId         String // sem FK: pode ser um User real ou o sentinel "CPU" (partida isVsCpu)
   cardId          String
   card            Card       @relation(fields: [cardId], references: [id])
   currentNodeId   String
