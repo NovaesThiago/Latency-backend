@@ -160,6 +160,7 @@ enum MoveActionType {
   MOVER
   FEITICO
   PASSAR_TURNO
+  ABASTECER
 }
 
 /**

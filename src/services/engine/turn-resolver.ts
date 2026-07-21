@@ -4,6 +4,9 @@ import { MapNodeData, UnitStatus } from './types';
 /** Bônus concedido por nível, chaveado pelo turnsInPosition necessário (ex.: {"2": {atk: 1, hp: 2}}). */
 export type EvolutionCurve = Record<string, { atk?: number; hp?: number }>;
 
+export const MAX_STAMINA = 10;
+const PASSIVE_STAMINA_REGEN = 1;
+
 export interface UnitState {
   id: string;
   ownerId: string;
@@ -20,6 +23,8 @@ export interface UnitState {
 export interface MatchState {
   player1Id: string;
   player2Id: string;
+  player1Stamina: number;
+  player2Stamina: number;
   nodes: MapNodeData[];
   units: UnitState[];
 }
@@ -31,6 +36,7 @@ export interface SummonAction {
   atNodeId: string;
   hp: number;
   atk: number;
+  cost: number;
   evolucaoCurva?: EvolutionCurve;
 }
 
@@ -42,9 +48,17 @@ export interface MoveAction {
 
 export interface PassAction {
   type: 'PASSAR_TURNO';
+  ownerId: string;
 }
 
-export type TurnAction = SummonAction | MoveAction | PassAction;
+/** Cartas de suprimento (seção "stamina" — analogia tech de abastecimento de energia). */
+export interface SupplyAction {
+  type: 'ABASTECER';
+  ownerId: string;
+  staminaGrant: number;
+}
+
+export type TurnAction = SummonAction | MoveAction | PassAction | SupplyAction;
 
 export type TurnEvent =
   | { type: 'UNIDADE_INVOCADA'; unitId: string; nodeId: string }
@@ -53,6 +67,7 @@ export type TurnEvent =
   | { type: 'UNIDADE_MORTA'; unitId: string }
   | { type: 'CORE_DANIFICADO'; targetOwnerId: string; amount: number }
   | { type: 'UNIDADE_EVOLUIU'; unitId: string; level: number }
+  | { type: 'ESTAMINA_ALTERADA'; ownerId: string; amount: number }
   | { type: 'TURNO_PASSADO' };
 
 export interface TurnResult {
@@ -67,7 +82,19 @@ export function resolveAction(state: MatchState, action: TurnAction): TurnResult
     case 'MOVER':
       return handleMove(state, action);
     case 'PASSAR_TURNO':
-      return handlePass(state);
+      return handlePass(state, action);
+    case 'ABASTECER':
+      return handleSupply(state, action);
+  }
+}
+
+function getStamina(state: MatchState, ownerId: string): number {
+  return ownerId === state.player1Id ? state.player1Stamina : state.player2Stamina;
+}
+
+function applyStaminaDelta(events: TurnEvent[], ownerId: string, amount: number): void {
+  if (amount !== 0) {
+    events.push({ type: 'ESTAMINA_ALTERADA', ownerId, amount });
   }
 }
 
@@ -75,6 +102,9 @@ function handleSummon(state: MatchState, action: SummonAction): TurnResult {
   const node = findNode(state, action.atNodeId);
   if (!node) {
     throw new EngineError('Nó de invocação inválido');
+  }
+  if (getStamina(state, action.ownerId) < action.cost) {
+    throw new EngineError('Estamina insuficiente para invocar esta unidade');
   }
 
   const unit: UnitState = {
@@ -92,8 +122,16 @@ function handleSummon(state: MatchState, action: SummonAction): TurnResult {
 
   const units = [...state.units, unit];
   const events: TurnEvent[] = [{ type: 'UNIDADE_INVOCADA', unitId: unit.id, nodeId: unit.currentNodeId }];
+  applyStaminaDelta(events, action.ownerId, PASSIVE_STAMINA_REGEN - action.cost);
 
   return applyCombat({ ...state, units }, action.atNodeId, events);
+}
+
+/** Carta de suprimento: não ocupa o tabuleiro, só recarrega estamina (analogia de abastecimento de energia). */
+function handleSupply(state: MatchState, action: SupplyAction): TurnResult {
+  const events: TurnEvent[] = [];
+  applyStaminaDelta(events, action.ownerId, action.staminaGrant + PASSIVE_STAMINA_REGEN);
+  return { units: state.units, events };
 }
 
 function handleMove(state: MatchState, action: MoveAction): TurnResult {
@@ -118,6 +156,7 @@ function handleMove(state: MatchState, action: MoveAction): TurnResult {
   const events: TurnEvent[] = [
     { type: 'UNIDADE_MOVIDA', unitId: unit.id, fromNodeId: unit.currentNodeId, toNodeId: action.toNodeId },
   ];
+  applyStaminaDelta(events, unit.ownerId, PASSIVE_STAMINA_REGEN);
 
   const afterCombat = applyCombat({ ...state, units }, action.toNodeId, events);
   return applyCoreDamage(state, afterCombat, action.toNodeId);
@@ -128,9 +167,10 @@ function handleMove(state: MatchState, action: MoveAction): TurnResult {
  * de TREINAMENTO ganha nível + bônus definido em evolucaoCurva. Fora de uma
  * subrota de treino, turnsInPosition não avança (não há progresso de evolução).
  */
-function handlePass(state: MatchState): TurnResult {
+function handlePass(state: MatchState, action: PassAction): TurnResult {
   const nodesById = new Map(state.nodes.map((n) => [n.id, n]));
   const events: TurnEvent[] = [{ type: 'TURNO_PASSADO' }];
+  applyStaminaDelta(events, action.ownerId, PASSIVE_STAMINA_REGEN);
 
   const units = state.units.map((u) => {
     if (u.status !== 'VIVA') {

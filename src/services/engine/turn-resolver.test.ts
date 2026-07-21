@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { generateMap } from './map-generator';
-import { MatchState, resolveAction, UnitState } from './turn-resolver';
+import { MatchState, MAX_STAMINA, resolveAction, UnitState } from './turn-resolver';
 
 const PLAYER1 = 'player-1';
 const PLAYER2 = 'player-2';
@@ -9,12 +9,19 @@ const SHARED_NODES = generateMap('seed-teste').nodes;
 const TRAINING_NODE = SHARED_NODES.find((n) => n.route === 'NORTE' && n.subrouteType === 'TREINAMENTO')!;
 const DIRECT_NODE = SHARED_NODES.find((n) => n.route === 'NORTE' && n.subrouteType === 'DIRETA' && n.positionIndex === 0)!;
 
-function buildState(units: UnitState[] = []): MatchState {
-  return { player1Id: PLAYER1, player2Id: PLAYER2, nodes: SHARED_NODES, units };
+function buildState(units: UnitState[] = [], stamina: { p1?: number; p2?: number } = {}): MatchState {
+  return {
+    player1Id: PLAYER1,
+    player2Id: PLAYER2,
+    player1Stamina: stamina.p1 ?? 5,
+    player2Stamina: stamina.p2 ?? 5,
+    nodes: SHARED_NODES,
+    units,
+  };
 }
 
-test('invoca uma unidade no nó indicado', () => {
-  const state = buildState();
+test('invoca uma unidade no nó indicado e cobra o custo em estamina', () => {
+  const state = buildState([], { p1: 5 });
   const [node] = state.nodes;
 
   const result = resolveAction(state, {
@@ -24,12 +31,43 @@ test('invoca uma unidade no nó indicado', () => {
     atNodeId: node.id,
     hp: 4,
     atk: 2,
+    cost: 3,
   });
 
   assert.equal(result.units.length, 1);
   assert.equal(result.units[0].currentNodeId, node.id);
   assert.equal(result.units[0].status, 'VIVA');
   assert.ok(result.events.some((e) => e.type === 'UNIDADE_INVOCADA'));
+  // custo 3 - regen passiva 1 = líquido -2
+  assert.ok(
+    result.events.some((e) => e.type === 'ESTAMINA_ALTERADA' && e.ownerId === PLAYER1 && e.amount === -2),
+  );
+});
+
+test('rejeita invocação sem estamina suficiente', () => {
+  const state = buildState([], { p1: 1 });
+  const [node] = state.nodes;
+
+  assert.throws(() =>
+    resolveAction(state, {
+      type: 'INVOCAR',
+      ownerId: PLAYER1,
+      cardId: 'card-worm',
+      atNodeId: node.id,
+      hp: 4,
+      atk: 2,
+      cost: 3,
+    }),
+  );
+});
+
+test('carta de suprimento (ABASTECER) recarrega estamina sem ocupar o tabuleiro', () => {
+  const state = buildState([], { p1: 2 });
+
+  const result = resolveAction(state, { type: 'ABASTECER', ownerId: PLAYER1, staminaGrant: 4 });
+
+  assert.equal(result.units.length, 0);
+  assert.ok(result.events.some((e) => e.type === 'ESTAMINA_ALTERADA' && e.ownerId === PLAYER1 && e.amount === 5));
 });
 
 test('rejeita invocação em nó inexistente', () => {
@@ -42,6 +80,7 @@ test('rejeita invocação em nó inexistente', () => {
       atNodeId: 'nó-inexistente',
       hp: 4,
       atk: 2,
+      cost: 1,
     }),
   );
 });
@@ -65,6 +104,7 @@ test('move uma unidade para um nó adjacente e reseta turnsInPosition', () => {
 
   assert.equal(result.units[0].currentNodeId, nodeB.id);
   assert.equal(result.units[0].turnsInPosition, 0);
+  assert.ok(result.events.some((e) => e.type === 'ESTAMINA_ALTERADA' && e.ownerId === PLAYER1 && e.amount === 1));
 });
 
 test('rejeita movimento para nó não adjacente', () => {
@@ -216,7 +256,7 @@ test('unidade sobrevivente que chega à base inimiga causa dano ao core', () => 
   );
 });
 
-test('passar o turno incrementa turnsInPosition apenas de unidades numa subrota de treino', () => {
+test('passar o turno incrementa turnsInPosition apenas de unidades numa subrota de treino e regenera estamina', () => {
   const unit: UnitState = {
     id: 'unit-1',
     ownerId: PLAYER1,
@@ -229,10 +269,11 @@ test('passar o turno incrementa turnsInPosition apenas de unidades numa subrota 
     status: 'VIVA',
   };
 
-  const result = resolveAction(buildState([unit]), { type: 'PASSAR_TURNO' });
+  const result = resolveAction(buildState([unit], { p1: 5 }), { type: 'PASSAR_TURNO', ownerId: PLAYER1 });
 
   assert.equal(result.units[0].turnsInPosition, 2);
   assert.ok(result.events.some((e) => e.type === 'TURNO_PASSADO'));
+  assert.ok(result.events.some((e) => e.type === 'ESTAMINA_ALTERADA' && e.ownerId === PLAYER1 && e.amount === 1));
 });
 
 test('passar o turno não avança turnsInPosition fora de uma subrota de treino', () => {
@@ -248,7 +289,7 @@ test('passar o turno não avança turnsInPosition fora de uma subrota de treino'
     status: 'VIVA',
   };
 
-  const result = resolveAction(buildState([unit]), { type: 'PASSAR_TURNO' });
+  const result = resolveAction(buildState([unit]), { type: 'PASSAR_TURNO', ownerId: PLAYER1 });
 
   assert.equal(result.units[0].turnsInPosition, 1);
 });
@@ -267,10 +308,15 @@ test('unidade evolui ao atingir o turnsInPosition definido na evolucaoCurva', ()
     evolucaoCurva: { '2': { atk: 1, hp: 2 } },
   };
 
-  const result = resolveAction(buildState([unit]), { type: 'PASSAR_TURNO' });
+  const result = resolveAction(buildState([unit]), { type: 'PASSAR_TURNO', ownerId: PLAYER1 });
 
   assert.equal(result.units[0].level, 2);
   assert.equal(result.units[0].atk, 3);
   assert.equal(result.units[0].hp, 6);
   assert.ok(result.events.some((e) => e.type === 'UNIDADE_EVOLUIU' && e.unitId === 'unit-1' && e.level === 2));
+});
+
+test('MAX_STAMINA é exportado para o serviço aplicar o teto ao persistir', () => {
+  assert.equal(typeof MAX_STAMINA, 'number');
+  assert.ok(MAX_STAMINA > 0);
 });

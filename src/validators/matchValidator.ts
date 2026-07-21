@@ -8,7 +8,8 @@ export const createMatchSchema = z.object({
 const summonSchema = z.object({
   type: z.literal('INVOCAR'),
   cardId: z.string().uuid(),
-  atNodeId: z.string().uuid(),
+  // opcional: cartas de suprimento não ocupam um nó do tabuleiro
+  atNodeId: z.string().uuid().optional(),
 });
 
 const moveSchema = z.object({

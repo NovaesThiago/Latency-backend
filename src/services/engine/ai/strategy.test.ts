@@ -2,19 +2,21 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { generateMap } from '../map-generator';
 import { MatchState, UnitState } from '../turn-resolver';
-import { CPU_OWNER_ID, decideCpuAction } from './strategy';
+import { CPU_OWNER_ID, CpuCardOption, decideCpuAction } from './strategy';
 
 const PLAYER1 = 'player-1';
 const NODES = generateMap('seed-cpu').nodes;
 const NORTE_NODES = [...NODES].filter((n) => n.route === 'NORTE').sort((a, b) => a.positionIndex - b.positionIndex);
+const WORM: CpuCardOption = { id: 'card-worm', type: 'UNIDADE', cost: 1 };
+const SUPPLY: CpuCardOption = { id: 'card-suprimento', type: 'SUPRIMENTO', cost: 0 };
 
-function buildState(units: UnitState[] = []): MatchState {
-  return { player1Id: PLAYER1, player2Id: CPU_OWNER_ID, nodes: NODES, units };
+function buildState(units: UnitState[] = [], player2Stamina = 5): MatchState {
+  return { player1Id: PLAYER1, player2Id: CPU_OWNER_ID, player1Stamina: 5, player2Stamina, nodes: NODES, units };
 }
 
 test('invoca uma unidade na base da CPU (rota NORTE) quando não tem unidades em campo', () => {
   const state = buildState();
-  const action = decideCpuAction(state, ['card-worm']);
+  const action = decideCpuAction(state, [WORM]);
 
   const cpuBaseNode = NORTE_NODES[NORTE_NODES.length - 1];
 
@@ -23,6 +25,17 @@ test('invoca uma unidade na base da CPU (rota NORTE) quando não tem unidades em
 
 test('passa o turno se não tem unidades nem cartas disponíveis', () => {
   const action = decideCpuAction(buildState(), []);
+  assert.deepEqual(action, { type: 'PASSAR_TURNO' });
+});
+
+test('abastece em vez de invocar quando a estamina está baixa e há carta de suprimento', () => {
+  const action = decideCpuAction(buildState([], 2), [WORM, SUPPLY]);
+  assert.deepEqual(action, { type: 'INVOCAR', cardId: 'card-suprimento' });
+});
+
+test('passa o turno se não pode pagar nenhuma carta disponível e não há suprimento', () => {
+  const expensiveUnit: CpuCardOption = { id: 'card-tank', type: 'UNIDADE', cost: 8 };
+  const action = decideCpuAction(buildState([], 5), [expensiveUnit]);
   assert.deepEqual(action, { type: 'PASSAR_TURNO' });
 });
 
@@ -42,7 +55,7 @@ test('avança a unidade da CPU em direção à base do player1', () => {
     status: 'VIVA',
   };
 
-  const action = decideCpuAction(buildState([unit]), ['card-worm']);
+  const action = decideCpuAction(buildState([unit]), [WORM]);
 
   assert.deepEqual(action, { type: 'MOVER', unitId: 'cpu-unit', toNodeId: oneStepIn.id });
 });
@@ -107,7 +120,7 @@ test('invoca na base da rota preferida do perfil, não sempre NORTE', () => {
   const centralNodes = NODES.filter((n) => n.route === 'CENTRAL').sort((a, b) => a.positionIndex - b.positionIndex);
   const centralBase = centralNodes[centralNodes.length - 1];
 
-  const action = decideCpuAction(buildState(), ['card-worm'], {
+  const action = decideCpuAction(buildState(), [WORM], {
     preferredRoute: 'CENTRAL',
     aggressiveRatio: 0.5,
     trainingUsageRatio: 0.5,
@@ -130,6 +143,6 @@ test('ignora unidades mortas da CPU ao decidir a ação', () => {
     status: 'MORTA',
   };
 
-  const action = decideCpuAction(buildState([deadUnit]), ['card-worm']);
+  const action = decideCpuAction(buildState([deadUnit]), [WORM]);
   assert.deepEqual(action, { type: 'INVOCAR', cardId: 'card-worm', atNodeId: cpuBase.id });
 });

@@ -23,7 +23,15 @@ export const getById: RequestHandler<{ id: string }> = async (req, res, next) =>
 export const resolveTurn: RequestHandler<{ id: string }> = async (req, res, next) => {
   try {
     const playerResult = await matchService.resolveTurn(req.params.id, req.user!.id, req.body);
-    const cpuResult = await cpuService.playTurnIfApplicable(req.params.id);
+
+    // A resposta da CPU nunca deve derrubar o turno do jogador, que já foi
+    // persistido com sucesso — uma falha aqui só significa que a CPU não jogou.
+    let cpuResult: Awaited<ReturnType<typeof cpuService.playTurnIfApplicable>> = null;
+    try {
+      cpuResult = await cpuService.playTurnIfApplicable(req.params.id);
+    } catch (cpuErr) {
+      console.error('cpuService.playTurnIfApplicable falhou:', cpuErr);
+    }
 
     res.json({
       match: cpuResult ? cpuResult.match : playerResult.match,

@@ -13,12 +13,14 @@ export const cpuService = {
 
     const state = await buildState(match);
     const cards = await cardService.list();
-    const unitCardIds = cards.filter((c) => c.type === 'UNIDADE').map((c) => c.id);
+    const availableCards = cards
+      .filter((c) => c.type === 'UNIDADE' || c.type === 'SUPRIMENTO')
+      .map((c) => ({ id: c.id, type: c.type, cost: c.cost }));
 
     const observations = await matchRepository.getObservations(matchId);
     const profile = computeProfile(observations.map((o) => o.featureSnapshot as unknown as FeatureSnapshot));
 
-    const action = decideCpuAction(state, unitCardIds, profile);
+    const action = decideCpuAction(state, availableCards, profile);
     return matchService.resolveTurn(matchId, CPU_OWNER_ID, action);
   },
 };

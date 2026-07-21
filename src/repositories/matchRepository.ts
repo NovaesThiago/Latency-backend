@@ -16,12 +16,18 @@ export const matchRepository = {
     templateId: string;
     seed: string;
     nodes: MapNodeData[];
+    player1DeckId: string | null;
+    player1Hand: string[];
+    player1DrawPile: string[];
   }) {
     const match = await prisma.match.create({
       data: {
         player1Id: params.player1Id,
         player2Id: params.player2Id,
         isVsCpu: params.isVsCpu,
+        player1DeckId: params.player1DeckId,
+        player1Hand: params.player1Hand,
+        player1DrawPile: params.player1DrawPile,
       },
     });
 
