@@ -3,35 +3,37 @@ import { EngineError } from './errors';
 import { GeneratedMap, MapNodeData, Route } from './types';
 
 /**
- * Fase 3 (seção 7 do plano): 3 rotas completas (Norte/Central/Sul), cada uma
- * sorteando entre alguns comprimentos fixos a partir do seed — não é um gerador
- * de grafo livre, é sorteio entre templates + validação BFS pós-geração.
+ * Fase 3 (seções 4.1 e 7 do plano): 3 rotas completas (Norte/Central/Sul).
+ * Cada rota tem uma subrota de treinamento (TREINAMENTO) e uma direta (DIRETA)
+ * que se bifurcam depois da base e se reencontram num "gateway" antes do core
+ * inimigo — não é geração de grafo livre, é sorteio entre templates fixos
+ * (comprimento da subrota de treino) + validação BFS pós-geração.
  * positionIndex 0 = base do player1, maior positionIndex da rota = base do player2.
  */
 const ROUTES: Route[] = ['NORTE', 'CENTRAL', 'SUL'];
-const TEMPLATE_LENGTHS = [4, 5, 6];
+const TRAINING_LENGTHS = [3, 4, 5];
 
 export function generateMap(seed: string): GeneratedMap {
   const nodes: MapNodeData[] = [];
-  const lengthByRoute: Record<string, number> = {};
+  const trainingLengthByRoute: Record<string, number> = {};
 
   for (const route of ROUTES) {
-    const length = pickTemplateLength(seed, route);
-    lengthByRoute[route] = length;
+    const trainingLength = pickTrainingLength(seed, route);
+    trainingLengthByRoute[route] = trainingLength;
 
-    const routeNodes = buildLinearRoute(route, length);
+    const routeNodes = buildRouteWithSubroute(route, trainingLength);
     assertPathExists(routeNodes, routeNodes[0].id, routeNodes[routeNodes.length - 1].id);
     nodes.push(...routeNodes);
   }
 
-  const templateId = ROUTES.map((route) => `${route}${lengthByRoute[route]}`).join('-');
+  const templateId = ROUTES.map((route) => `${route}${trainingLengthByRoute[route]}`).join('-');
 
   return { templateId, seed, nodes };
 }
 
-function pickTemplateLength(seed: string, route: Route): number {
+function pickTrainingLength(seed: string, route: Route): number {
   const hash = hashString(`${seed}:${route}`);
-  return TEMPLATE_LENGTHS[hash % TEMPLATE_LENGTHS.length];
+  return TRAINING_LENGTHS[hash % TRAINING_LENGTHS.length];
 }
 
 function hashString(input: string): number {
@@ -42,23 +44,42 @@ function hashString(input: string): number {
   return Math.abs(hash);
 }
 
-function buildLinearRoute(route: Route, length: number): MapNodeData[] {
-  const nodes: MapNodeData[] = Array.from({ length }, (_, index) => ({
-    id: randomUUID(),
-    route,
-    subrouteType: 'DIRETA',
-    positionIndex: index,
-    connections: [],
-  }));
+function makeNode(route: Route, subrouteType: 'DIRETA' | 'TREINAMENTO', positionIndex: number): MapNodeData {
+  return { id: randomUUID(), route, subrouteType, positionIndex, connections: [] };
+}
 
-  nodes.forEach((node, index) => {
-    const neighborIds: string[] = [];
-    if (index > 0) neighborIds.push(nodes[index - 1].id);
-    if (index < nodes.length - 1) neighborIds.push(nodes[index + 1].id);
-    node.connections = neighborIds;
-  });
+function link(a: MapNodeData, b: MapNodeData): void {
+  a.connections.push(b.id);
+  b.connections.push(a.id);
+}
 
-  return nodes;
+/**
+ * base -> fork -> {direto} e {treino1..treinoN} -> gateway -> pré-core -> core.
+ * As duas subrotas se reencontram no gateway antes de seguir para o core inimigo.
+ */
+function buildRouteWithSubroute(route: Route, trainingLength: number): MapNodeData[] {
+  const base = makeNode(route, 'DIRETA', 0);
+  const fork = makeNode(route, 'DIRETA', 1);
+  const direct = makeNode(route, 'DIRETA', 2);
+  const trainNodes = Array.from({ length: trainingLength }, (_, i) => makeNode(route, 'TREINAMENTO', 2 + i));
+  const gateway = makeNode(route, 'DIRETA', 2 + trainingLength);
+  const preCore = makeNode(route, 'DIRETA', 3 + trainingLength);
+  const core = makeNode(route, 'DIRETA', 4 + trainingLength);
+
+  link(base, fork);
+  link(fork, direct);
+  link(direct, gateway);
+
+  link(fork, trainNodes[0]);
+  for (let i = 0; i < trainNodes.length - 1; i += 1) {
+    link(trainNodes[i], trainNodes[i + 1]);
+  }
+  link(trainNodes[trainNodes.length - 1], gateway);
+
+  link(gateway, preCore);
+  link(preCore, core);
+
+  return [base, fork, direct, ...trainNodes, gateway, preCore, core];
 }
 
 /**
