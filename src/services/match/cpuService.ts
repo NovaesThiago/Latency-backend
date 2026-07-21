@@ -9,7 +9,7 @@ export const cpuService = {
       return null;
     }
 
-    const state = buildState(match);
+    const state = await buildState(match);
     const cards = await cardService.list();
     const unitCardIds = cards.filter((c) => c.type === 'UNIDADE').map((c) => c.id);
 

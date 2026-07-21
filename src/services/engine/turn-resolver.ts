@@ -1,6 +1,9 @@
 import { EngineError } from './errors';
 import { MapNodeData, UnitStatus } from './types';
 
+/** Bônus concedido por nível, chaveado pelo turnsInPosition necessário (ex.: {"2": {atk: 1, hp: 2}}). */
+export type EvolutionCurve = Record<string, { atk?: number; hp?: number }>;
+
 export interface UnitState {
   id: string;
   ownerId: string;
@@ -11,6 +14,7 @@ export interface UnitState {
   level: number;
   turnsInPosition: number;
   status: UnitStatus;
+  evolucaoCurva?: EvolutionCurve;
 }
 
 export interface MatchState {
@@ -27,6 +31,7 @@ export interface SummonAction {
   atNodeId: string;
   hp: number;
   atk: number;
+  evolucaoCurva?: EvolutionCurve;
 }
 
 export interface MoveAction {
@@ -47,6 +52,7 @@ export type TurnEvent =
   | { type: 'COMBATE_RESOLVIDO'; nodeId: string; unitIds: string[] }
   | { type: 'UNIDADE_MORTA'; unitId: string }
   | { type: 'CORE_DANIFICADO'; targetOwnerId: string; amount: number }
+  | { type: 'UNIDADE_EVOLUIU'; unitId: string; level: number }
   | { type: 'TURNO_PASSADO' };
 
 export interface TurnResult {
@@ -81,6 +87,7 @@ function handleSummon(state: MatchState, action: SummonAction): TurnResult {
     level: 1,
     turnsInPosition: 0,
     status: 'VIVA',
+    evolucaoCurva: action.evolucaoCurva,
   };
 
   const units = [...state.units, unit];
@@ -116,9 +123,43 @@ function handleMove(state: MatchState, action: MoveAction): TurnResult {
   return applyCoreDamage(state, afterCombat, action.toNodeId);
 }
 
+/**
+ * Evolução (seção 4.3 do plano): unidade parada X turnos seguidos numa subrota
+ * de TREINAMENTO ganha nível + bônus definido em evolucaoCurva. Fora de uma
+ * subrota de treino, turnsInPosition não avança (não há progresso de evolução).
+ */
 function handlePass(state: MatchState): TurnResult {
-  const units = state.units.map((u) => (u.status === 'VIVA' ? { ...u, turnsInPosition: u.turnsInPosition + 1 } : u));
-  return { units, events: [{ type: 'TURNO_PASSADO' }] };
+  const nodesById = new Map(state.nodes.map((n) => [n.id, n]));
+  const events: TurnEvent[] = [{ type: 'TURNO_PASSADO' }];
+
+  const units = state.units.map((u) => {
+    if (u.status !== 'VIVA') {
+      return u;
+    }
+
+    const node = nodesById.get(u.currentNodeId);
+    if (!node || node.subrouteType !== 'TREINAMENTO') {
+      return u;
+    }
+
+    const turnsInPosition = u.turnsInPosition + 1;
+    const bonus = u.evolucaoCurva?.[String(turnsInPosition)];
+    if (!bonus) {
+      return { ...u, turnsInPosition };
+    }
+
+    const evolved: UnitState = {
+      ...u,
+      turnsInPosition,
+      level: u.level + 1,
+      atk: u.atk + (bonus.atk ?? 0),
+      hp: u.hp + (bonus.hp ?? 0),
+    };
+    events.push({ type: 'UNIDADE_EVOLUIU', unitId: u.id, level: evolved.level });
+    return evolved;
+  });
+
+  return { units, events };
 }
 
 /**

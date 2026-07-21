@@ -6,6 +6,8 @@ import { MatchState, resolveAction, UnitState } from './turn-resolver';
 const PLAYER1 = 'player-1';
 const PLAYER2 = 'player-2';
 const SHARED_NODES = generateMap('seed-teste').nodes;
+const TRAINING_NODE = SHARED_NODES.find((n) => n.route === 'NORTE' && n.subrouteType === 'TREINAMENTO')!;
+const DIRECT_NODE = SHARED_NODES.find((n) => n.route === 'NORTE' && n.subrouteType === 'DIRETA' && n.positionIndex === 0)!;
 
 function buildState(units: UnitState[] = []): MatchState {
   return { player1Id: PLAYER1, player2Id: PLAYER2, nodes: SHARED_NODES, units };
@@ -214,12 +216,12 @@ test('unidade sobrevivente que chega à base inimiga causa dano ao core', () => 
   );
 });
 
-test('passar o turno incrementa turnsInPosition de unidades vivas', () => {
+test('passar o turno incrementa turnsInPosition apenas de unidades numa subrota de treino', () => {
   const unit: UnitState = {
     id: 'unit-1',
     ownerId: PLAYER1,
     cardId: 'card-worm',
-    currentNodeId: 'node-x',
+    currentNodeId: TRAINING_NODE.id,
     hp: 4,
     atk: 2,
     level: 1,
@@ -231,4 +233,44 @@ test('passar o turno incrementa turnsInPosition de unidades vivas', () => {
 
   assert.equal(result.units[0].turnsInPosition, 2);
   assert.ok(result.events.some((e) => e.type === 'TURNO_PASSADO'));
+});
+
+test('passar o turno não avança turnsInPosition fora de uma subrota de treino', () => {
+  const unit: UnitState = {
+    id: 'unit-1',
+    ownerId: PLAYER1,
+    cardId: 'card-worm',
+    currentNodeId: DIRECT_NODE.id,
+    hp: 4,
+    atk: 2,
+    level: 1,
+    turnsInPosition: 1,
+    status: 'VIVA',
+  };
+
+  const result = resolveAction(buildState([unit]), { type: 'PASSAR_TURNO' });
+
+  assert.equal(result.units[0].turnsInPosition, 1);
+});
+
+test('unidade evolui ao atingir o turnsInPosition definido na evolucaoCurva', () => {
+  const unit: UnitState = {
+    id: 'unit-1',
+    ownerId: PLAYER1,
+    cardId: 'card-worm',
+    currentNodeId: TRAINING_NODE.id,
+    hp: 4,
+    atk: 2,
+    level: 1,
+    turnsInPosition: 1,
+    status: 'VIVA',
+    evolucaoCurva: { '2': { atk: 1, hp: 2 } },
+  };
+
+  const result = resolveAction(buildState([unit]), { type: 'PASSAR_TURNO' });
+
+  assert.equal(result.units[0].level, 2);
+  assert.equal(result.units[0].atk, 3);
+  assert.equal(result.units[0].hp, 6);
+  assert.ok(result.events.some((e) => e.type === 'UNIDADE_EVOLUIU' && e.unitId === 'unit-1' && e.level === 2));
 });

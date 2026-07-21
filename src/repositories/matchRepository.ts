@@ -74,6 +74,8 @@ export const matchRepository = {
       data: {
         currentNodeId: unit.currentNodeId,
         hp: unit.hp,
+        atk: unit.atk,
+        level: unit.level,
         turnsInPosition: unit.turnsInPosition,
         status: unit.status,
       },

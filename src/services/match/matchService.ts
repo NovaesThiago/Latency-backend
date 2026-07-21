@@ -6,11 +6,14 @@ import { cardService } from '../card/cardService';
 import { CPU_OWNER_ID } from '../engine/ai/strategy';
 import { EngineError } from '../engine/errors';
 import { generateMap } from '../engine/map-generator';
-import { MatchState, resolveAction, TurnAction } from '../engine/turn-resolver';
+import { EvolutionCurve, MatchState, resolveAction, TurnAction } from '../engine/turn-resolver';
 
 export type MatchWithBoard = NonNullable<Awaited<ReturnType<typeof matchRepository.findById>>>;
 
-export function buildState(match: MatchWithBoard): MatchState {
+export async function buildState(match: MatchWithBoard): Promise<MatchState> {
+  const cards = await cardService.list();
+  const cardById = new Map(cards.map((c) => [c.id, c]));
+
   return {
     player1Id: match.player1Id,
     player2Id: match.player2Id ?? CPU_OWNER_ID,
@@ -31,6 +34,7 @@ export function buildState(match: MatchWithBoard): MatchState {
       level: u.level,
       turnsInPosition: u.turnsInPosition,
       status: u.status,
+      evolucaoCurva: cardById.get(u.cardId)?.evolucaoCurva as EvolutionCurve | undefined,
     })),
   };
 }
@@ -81,7 +85,7 @@ export const matchService = {
       throw new AppError('Você não faz parte desta partida', 403);
     }
 
-    const state = buildState(match);
+    const state = await buildState(match);
 
     let engineAction: TurnAction;
     let unitIdForLog: string | null = null;
@@ -97,6 +101,7 @@ export const matchService = {
         atNodeId: input.atNodeId,
         hp: card.baseHp,
         atk: card.baseAtk,
+        evolucaoCurva: card.evolucaoCurva as EvolutionCurve,
       };
       toNodeId = input.atNodeId;
     } else if (input.type === 'MOVER') {
