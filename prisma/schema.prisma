@@ -19,3 +19,21 @@ enum Role {
   ADMIN
   PLAYER
 }
+
+model Card {
+  id            String   @id @default(uuid())
+  name          String
+  type          CardType
+  baseAtk       Int
+  baseHp        Int
+  cost          Int
+  movePattern   Json
+  evolucaoCurva Json
+  createdAt     DateTime @default(now())
+}
+
+enum CardType {
+  UNIDADE
+  ESTRUTURA
+  FEITICO
+}
