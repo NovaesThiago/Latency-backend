@@ -7,6 +7,7 @@ import { AppError } from './middlewares/AppError';
 import { errorHandler } from './middlewares/errorHandler';
 import { authRoutes } from './routes/authRoutes';
 import { cardRoutes } from './routes/cardRoutes';
+import { deckRoutes } from './routes/deckRoutes';
 
 export const app = express();
 
@@ -21,6 +22,7 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/auth', authRoutes);
 app.use('/cards', cardRoutes);
+app.use('/decks', deckRoutes);
 
 app.use((_req, _res, next) => {
   next(new AppError('Rota não encontrada', 404));
