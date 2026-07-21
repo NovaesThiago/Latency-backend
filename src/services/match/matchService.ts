@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { AppError } from '../../middlewares/AppError';
 import { matchRepository } from '../../repositories/matchRepository';
 import { cardService } from '../card/cardService';
+import { FeatureSnapshot } from '../engine/ai/adaptation';
 import { CPU_OWNER_ID } from '../engine/ai/strategy';
 import { EngineError } from '../engine/errors';
 import { generateMap } from '../engine/map-generator';
@@ -170,6 +171,16 @@ export const matchService = {
       actionType: input.type,
       payload: { events: result.events },
     });
+
+    if (requesterId === match.player1Id) {
+      const targetNode = toNodeId ? state.nodes.find((n) => n.id === toNodeId) : undefined;
+      const snapshot: FeatureSnapshot = {
+        actionType: input.type,
+        route: targetNode?.route,
+        usedTrainingSubroute: input.type === 'MOVER' ? targetNode?.subrouteType === 'TREINAMENTO' : undefined,
+      };
+      await matchRepository.recordObservation(matchId, turnNumber, snapshot);
+    }
 
     return { match: await matchService.getById(matchId), events: result.events };
   },

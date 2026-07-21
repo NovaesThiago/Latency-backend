@@ -111,4 +111,28 @@ export const matchRepository = {
   updateMatch(id: string, data: Prisma.MatchUpdateInput) {
     return prisma.match.update({ where: { id }, data });
   },
+
+  async recordObservation(matchId: string, turnNumber: number, featureSnapshot: unknown) {
+    const aiProfile = await prisma.aiProfile.upsert({
+      where: { matchId },
+      create: { matchId },
+      update: {},
+    });
+
+    return prisma.aiObservation.create({
+      data: {
+        aiProfileId: aiProfile.id,
+        turnNumber,
+        featureSnapshot: featureSnapshot as Prisma.InputJsonValue,
+      },
+    });
+  },
+
+  async getObservations(matchId: string) {
+    const aiProfile = await prisma.aiProfile.findUnique({
+      where: { matchId },
+      include: { observations: true },
+    });
+    return aiProfile?.observations ?? [];
+  },
 };

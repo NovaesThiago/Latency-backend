@@ -1,5 +1,7 @@
-import { decideCpuAction, CPU_OWNER_ID } from '../engine/ai/strategy';
+import { matchRepository } from '../../repositories/matchRepository';
 import { cardService } from '../card/cardService';
+import { computeProfile, FeatureSnapshot } from '../engine/ai/adaptation';
+import { decideCpuAction, CPU_OWNER_ID } from '../engine/ai/strategy';
 import { buildState, matchService } from './matchService';
 
 export const cpuService = {
@@ -13,7 +15,10 @@ export const cpuService = {
     const cards = await cardService.list();
     const unitCardIds = cards.filter((c) => c.type === 'UNIDADE').map((c) => c.id);
 
-    const action = decideCpuAction(state, unitCardIds);
+    const observations = await matchRepository.getObservations(matchId);
+    const profile = computeProfile(observations.map((o) => o.featureSnapshot as unknown as FeatureSnapshot));
+
+    const action = decideCpuAction(state, unitCardIds, profile);
     return matchService.resolveTurn(matchId, CPU_OWNER_ID, action);
   },
 };
