@@ -24,10 +24,12 @@ enum Role {
 model Card {
   id            String      @id @default(uuid())
   name          String
+  description   String      @default("")
   type          CardType
   baseAtk       Int
   baseHp        Int
   cost          Int
+  staminaGrant  Int         @default(0)
   movePattern   Json
   evolucaoCurva Json
   deckCards     DeckCard[]
@@ -39,6 +41,7 @@ enum CardType {
   UNIDADE
   ESTRUTURA
   FEITICO
+  SUPRIMENTO
 }
 
 model Deck {
@@ -60,20 +63,25 @@ model DeckCard {
 }
 
 model Match {
-  id            String      @id @default(uuid())
-  player1Id     String
-  player2Id     String?
-  isVsCpu       Boolean     @default(false)
-  player1CoreHp Int         @default(20)
-  player2CoreHp Int         @default(20)
-  winnerId      String?
-  status        MatchStatus @default(EM_ANDAMENTO)
-  startedAt     DateTime    @default(now())
-  endedAt       DateTime?
-  map           MatchMap?
-  units         FieldUnit[]
-  moves         MatchMove[]
-  aiProfile     AiProfile?
+  id              String      @id @default(uuid())
+  player1Id       String
+  player2Id       String?
+  isVsCpu         Boolean     @default(false)
+  player1CoreHp   Int         @default(20)
+  player2CoreHp   Int         @default(20)
+  player1Stamina  Int         @default(5)
+  player2Stamina  Int         @default(5)
+  player1DeckId   String? // sem FK: apenas referência informativa ao deck sorteado
+  player1Hand     Json        @default("[]") // ids de Card na mão atual do player1
+  player1DrawPile Json        @default("[]") // ids de Card embaralhados aguardando compra
+  winnerId        String?
+  status          MatchStatus @default(EM_ANDAMENTO)
+  startedAt       DateTime    @default(now())
+  endedAt         DateTime?
+  map             MatchMap?
+  units           FieldUnit[]
+  moves           MatchMove[]
+  aiProfile       AiProfile?
 }
 
 enum MatchStatus {
