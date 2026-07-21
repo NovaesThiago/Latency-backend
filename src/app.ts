@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import { corsOptions } from './config/cors';
+import { swaggerSpec } from './config/swagger';
 import { AppError } from './middlewares/AppError';
 import { errorHandler } from './middlewares/errorHandler';
 import { authRoutes } from './routes/authRoutes';
@@ -13,6 +15,8 @@ app.use(express.json());
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
+
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/auth', authRoutes);
 
