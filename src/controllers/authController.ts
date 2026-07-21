@@ -20,3 +20,7 @@ export const login: RequestHandler = async (req, res, next) => {
     next(err);
   }
 };
+
+export const me: RequestHandler = (req, res) => {
+  res.json({ user: req.user });
+};
