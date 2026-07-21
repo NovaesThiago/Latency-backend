@@ -73,6 +73,7 @@ model Match {
   map           MatchMap?
   units         FieldUnit[]
   moves         MatchMove[]
+  aiProfile     AiProfile?
 }
 
 enum MatchStatus {
@@ -151,4 +152,24 @@ enum MoveActionType {
   MOVER
   FEITICO
   PASSAR_TURNO
+}
+
+/**
+ * Fase 4 / seção 8 do plano: perfil de observação do jogador humano, usado pela
+ * CPU para recalcular pesos de decisão (heurística ponderada, não ML).
+ */
+model AiProfile {
+  id           String          @id @default(uuid())
+  matchId      String          @unique
+  match        Match           @relation(fields: [matchId], references: [id])
+  observations AiObservation[]
+}
+
+model AiObservation {
+  id              String    @id @default(uuid())
+  aiProfileId     String
+  aiProfile       AiProfile @relation(fields: [aiProfileId], references: [id])
+  turnNumber      Int
+  featureSnapshot Json
+  createdAt       DateTime  @default(now())
 }
