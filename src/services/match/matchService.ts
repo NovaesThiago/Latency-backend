@@ -3,11 +3,37 @@ import { randomUUID } from 'crypto';
 import { AppError } from '../../middlewares/AppError';
 import { matchRepository } from '../../repositories/matchRepository';
 import { cardService } from '../card/cardService';
+import { CPU_OWNER_ID } from '../engine/ai/strategy';
 import { EngineError } from '../engine/errors';
 import { generateMap } from '../engine/map-generator';
 import { MatchState, resolveAction, TurnAction } from '../engine/turn-resolver';
 
-export const CPU_OWNER_ID = 'CPU';
+export type MatchWithBoard = NonNullable<Awaited<ReturnType<typeof matchRepository.findById>>>;
+
+export function buildState(match: MatchWithBoard): MatchState {
+  return {
+    player1Id: match.player1Id,
+    player2Id: match.player2Id ?? CPU_OWNER_ID,
+    nodes: match.map!.nodes.map((n) => ({
+      id: n.id,
+      route: n.route,
+      subrouteType: n.subrouteType,
+      positionIndex: n.positionIndex,
+      connections: n.connections as string[],
+    })),
+    units: match.units.map((u) => ({
+      id: u.id,
+      ownerId: u.ownerId,
+      cardId: u.cardId,
+      currentNodeId: u.currentNodeId,
+      hp: u.hp,
+      atk: u.atk,
+      level: u.level,
+      turnsInPosition: u.turnsInPosition,
+      status: u.status,
+    })),
+  };
+}
 
 export type ResolveTurnInput =
   | { type: 'INVOCAR'; cardId: string; atNodeId: string }
@@ -55,28 +81,7 @@ export const matchService = {
       throw new AppError('Você não faz parte desta partida', 403);
     }
 
-    const state: MatchState = {
-      player1Id: match.player1Id,
-      player2Id,
-      nodes: match.map.nodes.map((n) => ({
-        id: n.id,
-        route: n.route,
-        subrouteType: n.subrouteType,
-        positionIndex: n.positionIndex,
-        connections: n.connections as string[],
-      })),
-      units: match.units.map((u) => ({
-        id: u.id,
-        ownerId: u.ownerId,
-        cardId: u.cardId,
-        currentNodeId: u.currentNodeId,
-        hp: u.hp,
-        atk: u.atk,
-        level: u.level,
-        turnsInPosition: u.turnsInPosition,
-        status: u.status,
-      })),
-    };
+    const state = buildState(match);
 
     let engineAction: TurnAction;
     let unitIdForLog: string | null = null;
