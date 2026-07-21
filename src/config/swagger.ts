@@ -5,9 +5,9 @@ export const swaggerSpec = swaggerJsdoc({
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Ciberguerra API',
+      title: 'Latency API',
       version: '1.0.0',
-      description: 'API REST do jogo Ciberguerra (TCG tático por turnos, tema ciberguerra)',
+      description: 'API REST do jogo Latency (TCG tático por turnos, tema ciberguerra)',
     },
     components: {
       securitySchemes: {

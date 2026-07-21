@@ -1,7 +1,7 @@
 {
   "name": "latency-backend",
   "version": "1.0.0",
-  "description": "API REST do Ciberguerra - jogo web de estrategia por turnos",
+  "description": "API REST do Latency - jogo web de estrategia por turnos",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",

@@ -1,6 +1,6 @@
-# Ciberguerra — Backend
+# Latency — Backend
 
-API REST do jogo Ciberguerra (TCG tático por turnos, tema ciberguerra), projeto avaliativo de Programação para Internet II.
+API REST do jogo Latency (TCG tático por turnos, tema ciberguerra: hackers vs. firewalls), projeto avaliativo de Programação para Internet II.
 
 ## Stack
 Node.js + TypeScript + Express + Prisma ORM + PostgreSQL (Neon) + JWT + Zod + Swagger.
