@@ -8,11 +8,13 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String      @id @default(uuid())
+  email        String      @unique
   passwordHash String
-  role         Role     @default(PLAYER)
-  createdAt    DateTime @default(now())
+  role         Role        @default(PLAYER)
+  decks        Deck[]
+  fieldUnits   FieldUnit[]
+  createdAt    DateTime    @default(now())
 }
 
 enum Role {
@@ -21,7 +23,7 @@ enum Role {
 }
 
 model Card {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   name          String
   type          CardType
   baseAtk       Int
@@ -29,11 +31,124 @@ model Card {
   cost          Int
   movePattern   Json
   evolucaoCurva Json
-  createdAt     DateTime @default(now())
+  deckCards     DeckCard[]
+  fieldUnits    FieldUnit[]
+  createdAt     DateTime    @default(now())
 }
 
 enum CardType {
   UNIDADE
   ESTRUTURA
   FEITICO
+}
+
+model Deck {
+  id     String     @id @default(uuid())
+  name   String
+  userId String
+  user   User       @relation(fields: [userId], references: [id])
+  cards  DeckCard[]
+}
+
+model DeckCard {
+  deckId String
+  cardId String
+  qty    Int    @default(1)
+  deck   Deck   @relation(fields: [deckId], references: [id])
+  card   Card   @relation(fields: [cardId], references: [id])
+
+  @@id([deckId, cardId])
+}
+
+model Match {
+  id        String      @id @default(uuid())
+  player1Id String
+  player2Id String?
+  isVsCpu   Boolean     @default(false)
+  winnerId  String?
+  status    MatchStatus @default(EM_ANDAMENTO)
+  startedAt DateTime    @default(now())
+  endedAt   DateTime?
+  map       MatchMap?
+  units     FieldUnit[]
+  moves     MatchMove[]
+}
+
+enum MatchStatus {
+  EM_ANDAMENTO
+  FINALIZADA
+}
+
+model MatchMap {
+  id         String    @id @default(uuid())
+  matchId    String    @unique
+  match      Match     @relation(fields: [matchId], references: [id])
+  templateId String
+  seed       String
+  nodes      MapNode[]
+  createdAt  DateTime  @default(now())
+}
+
+model MapNode {
+  id            String       @id @default(uuid())
+  matchMapId    String
+  matchMap      MatchMap     @relation(fields: [matchMapId], references: [id])
+  route         Route
+  subrouteType  SubrouteType
+  positionIndex Int
+  connections   Json
+  units         FieldUnit[]
+}
+
+enum Route {
+  NORTE
+  CENTRAL
+  SUL
+}
+
+enum SubrouteType {
+  TREINAMENTO
+  DIRETA
+}
+
+model FieldUnit {
+  id              String     @id @default(uuid())
+  matchId         String
+  match           Match      @relation(fields: [matchId], references: [id])
+  ownerId         String
+  owner           User       @relation(fields: [ownerId], references: [id])
+  cardId          String
+  card            Card       @relation(fields: [cardId], references: [id])
+  currentNodeId   String
+  currentNode     MapNode    @relation(fields: [currentNodeId], references: [id])
+  hp              Int
+  atk             Int
+  level           Int        @default(1)
+  turnsInPosition Int        @default(0)
+  status          UnitStatus @default(VIVA)
+}
+
+enum UnitStatus {
+  VIVA
+  MORTA
+}
+
+model MatchMove {
+  id         String         @id @default(uuid())
+  matchId    String
+  match      Match          @relation(fields: [matchId], references: [id])
+  turnNumber Int
+  unitId     String?
+  fromNodeId String?
+  toNodeId   String?
+  actionType MoveActionType
+  payload    Json
+  createdAt  DateTime       @default(now())
+}
+
+enum MoveActionType {
+  INVOCAR
+  MOVER
+  FEITICO
+  PASSAR_TURNO
 }
