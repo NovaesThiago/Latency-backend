@@ -6,16 +6,17 @@ import { CPU_OWNER_ID, decideCpuAction } from './strategy';
 
 const PLAYER1 = 'player-1';
 const NODES = generateMap('seed-cpu').nodes;
+const NORTE_NODES = [...NODES].filter((n) => n.route === 'NORTE').sort((a, b) => a.positionIndex - b.positionIndex);
 
 function buildState(units: UnitState[] = []): MatchState {
   return { player1Id: PLAYER1, player2Id: CPU_OWNER_ID, nodes: NODES, units };
 }
 
-test('invoca uma unidade na base da CPU quando não tem unidades em campo', () => {
+test('invoca uma unidade na base da CPU (rota NORTE) quando não tem unidades em campo', () => {
   const state = buildState();
   const action = decideCpuAction(state, ['card-worm']);
 
-  const cpuBaseNode = NODES.reduce((a, b) => (a.positionIndex > b.positionIndex ? a : b));
+  const cpuBaseNode = NORTE_NODES[NORTE_NODES.length - 1];
 
   assert.deepEqual(action, { type: 'INVOCAR', cardId: 'card-worm', atNodeId: cpuBaseNode.id });
 });
@@ -26,8 +27,8 @@ test('passa o turno se não tem unidades nem cartas disponíveis', () => {
 });
 
 test('avança a unidade da CPU em direção à base do player1', () => {
-  const sorted = [...NODES].sort((a, b) => b.positionIndex - a.positionIndex);
-  const [cpuBase, oneStepIn] = sorted;
+  const cpuBase = NORTE_NODES[NORTE_NODES.length - 1];
+  const oneStepIn = NORTE_NODES[NORTE_NODES.length - 2];
 
   const unit: UnitState = {
     id: 'cpu-unit',
@@ -47,7 +48,7 @@ test('avança a unidade da CPU em direção à base do player1', () => {
 });
 
 test('ignora unidades mortas da CPU ao decidir a ação', () => {
-  const cpuBase = NODES.reduce((a, b) => (a.positionIndex > b.positionIndex ? a : b));
+  const cpuBase = NORTE_NODES[NORTE_NODES.length - 1];
   const deadUnit: UnitState = {
     id: 'cpu-unit-morta',
     ownerId: CPU_OWNER_ID,

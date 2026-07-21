@@ -1,19 +1,51 @@
 import { randomUUID } from 'crypto';
 import { EngineError } from './errors';
-import { GeneratedMap, MapNodeData } from './types';
+import { GeneratedMap, MapNodeData, Route } from './types';
 
 /**
- * Fase 2: 1 template fixo, 1 rota linear sem subrotas (seção 7 do plano trata
- * geração procedural com múltiplos templates + embaralhamento, isso fica para a Fase 3).
- * positionIndex 0 = base do player1, positionIndex TRACK_LENGTH - 1 = base do player2.
+ * Fase 3 (seção 7 do plano): 3 rotas completas (Norte/Central/Sul), cada uma
+ * sorteando entre alguns comprimentos fixos a partir do seed — não é um gerador
+ * de grafo livre, é sorteio entre templates + validação BFS pós-geração.
+ * positionIndex 0 = base do player1, maior positionIndex da rota = base do player2.
  */
-const FIXED_TEMPLATE_ID = 'fase2-linear-norte';
-const TRACK_LENGTH = 5;
+const ROUTES: Route[] = ['NORTE', 'CENTRAL', 'SUL'];
+const TEMPLATE_LENGTHS = [4, 5, 6];
 
 export function generateMap(seed: string): GeneratedMap {
-  const nodes: MapNodeData[] = Array.from({ length: TRACK_LENGTH }, (_, index) => ({
+  const nodes: MapNodeData[] = [];
+  const lengthByRoute: Record<string, number> = {};
+
+  for (const route of ROUTES) {
+    const length = pickTemplateLength(seed, route);
+    lengthByRoute[route] = length;
+
+    const routeNodes = buildLinearRoute(route, length);
+    assertPathExists(routeNodes, routeNodes[0].id, routeNodes[routeNodes.length - 1].id);
+    nodes.push(...routeNodes);
+  }
+
+  const templateId = ROUTES.map((route) => `${route}${lengthByRoute[route]}`).join('-');
+
+  return { templateId, seed, nodes };
+}
+
+function pickTemplateLength(seed: string, route: Route): number {
+  const hash = hashString(`${seed}:${route}`);
+  return TEMPLATE_LENGTHS[hash % TEMPLATE_LENGTHS.length];
+}
+
+function hashString(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 31 + input.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function buildLinearRoute(route: Route, length: number): MapNodeData[] {
+  const nodes: MapNodeData[] = Array.from({ length }, (_, index) => ({
     id: randomUUID(),
-    route: 'NORTE',
+    route,
     subrouteType: 'DIRETA',
     positionIndex: index,
     connections: [],
@@ -26,23 +58,21 @@ export function generateMap(seed: string): GeneratedMap {
     node.connections = neighborIds;
   });
 
-  assertConnected(nodes);
-
-  return { templateId: FIXED_TEMPLATE_ID, seed, nodes };
+  return nodes;
 }
 
 /**
- * Validação de conectividade (seção 7): BFS a partir do primeiro nó deve alcançar
- * todos os outros antes de persistir o mapa.
+ * Validação de conectividade (seção 7): BFS deve alcançar o nó de destino a
+ * partir do nó de origem antes de persistir o mapa.
  */
-function assertConnected(nodes: MapNodeData[]): void {
+function assertPathExists(nodes: MapNodeData[], fromId: string, toId: string): void {
   if (nodes.length === 0) {
     throw new EngineError('Mapa gerado sem nós');
   }
 
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const visited = new Set<string>([nodes[0].id]);
-  const queue = [nodes[0].id];
+  const visited = new Set<string>([fromId]);
+  const queue = [fromId];
 
   while (queue.length > 0) {
     const currentId = queue.shift() as string;
@@ -55,7 +85,7 @@ function assertConnected(nodes: MapNodeData[]): void {
     }
   }
 
-  if (visited.size !== nodes.length) {
-    throw new EngineError('Mapa gerado não é totalmente conectado');
+  if (!visited.has(toId)) {
+    throw new EngineError('Mapa gerado não conecta a base do jogador ao core inimigo');
   }
 }

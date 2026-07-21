@@ -2,6 +2,9 @@ import { MatchState } from '../turn-resolver';
 
 export const CPU_OWNER_ID = 'CPU';
 
+/** Fase 3: com 3 rotas independentes, a CPU (regra fixa) sempre joga na mesma rota fixa. */
+const DEFAULT_ROUTE = 'NORTE';
+
 export type CpuAction =
   | { type: 'INVOCAR'; cardId: string; atNodeId: string }
   | { type: 'MOVER'; unitId: string; toNodeId: string }
@@ -13,9 +16,9 @@ export type CpuAction =
  * uma partida vs CPU sempre jogável).
  *
  * Regra: se a CPU não tem unidade em campo, invoca a primeira carta de unidade
- * disponível na base da CPU (maior positionIndex). Caso contrário, avança a
- * primeira unidade que conseguir se mover em direção à base do player1 (menor
- * positionIndex). Sem opções, passa o turno.
+ * disponível na base da CPU na rota padrão (maior positionIndex daquela rota).
+ * Caso contrário, avança a primeira unidade que conseguir se mover em direção
+ * à base do player1 (menor positionIndex). Sem opções, passa o turno.
  */
 export function decideCpuAction(state: MatchState, availableUnitCardIds: string[]): CpuAction {
   const cpuUnits = state.units.filter((u) => u.ownerId === CPU_OWNER_ID && u.status === 'VIVA');
@@ -24,7 +27,8 @@ export function decideCpuAction(state: MatchState, availableUnitCardIds: string[
     if (availableUnitCardIds.length === 0) {
       return { type: 'PASSAR_TURNO' };
     }
-    const cpuBaseNode = state.nodes.reduce((a, b) => (a.positionIndex > b.positionIndex ? a : b));
+    const routeNodes = state.nodes.filter((n) => n.route === DEFAULT_ROUTE);
+    const cpuBaseNode = routeNodes.reduce((a, b) => (a.positionIndex > b.positionIndex ? a : b));
     return { type: 'INVOCAR', cardId: availableUnitCardIds[0], atNodeId: cpuBaseNode.id };
   }
 
