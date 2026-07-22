@@ -3,8 +3,8 @@ import { authService } from '../services/auth/authService';
 
 export const register: RequestHandler = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    const result = await authService.register(email, password);
+    const { nickname, email, password } = req.body;
+    const result = await authService.register(nickname, email, password);
     res.status(201).json(result);
   } catch (err) {
     next(err);

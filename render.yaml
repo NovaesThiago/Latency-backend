@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: ciberguerra-backend
+    name: latency-backend
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build && npx prisma migrate deploy
+    buildCommand: npm install && npm run build && npx prisma migrate deploy && npm run db:seed
     startCommand: npm start
     envVars:
       - key: DATABASE_URL
@@ -14,3 +14,7 @@ services:
         sync: false
       - key: PORT
         value: 3333
+      - key: JUDGE0_URL
+        value: https://ce.judge0.com
+      - key: ANTHROPIC_API_KEY
+        sync: false

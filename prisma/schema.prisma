@@ -8,12 +8,13 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String     @id @default(uuid())
+  nickname     String     @unique
+  email        String     @unique
   passwordHash String
-  role         Role     @default(PLAYER)
-  decks        Deck[]
-  createdAt    DateTime @default(now())
+  role         Role       @default(PLAYER)
+  invasions    Invasion[]
+  createdAt    DateTime   @default(now())
 }
 
 enum Role {
@@ -21,164 +22,117 @@ enum Role {
   PLAYER
 }
 
-model Card {
-  id            String      @id @default(uuid())
-  name          String      @unique
-  description   String      @default("")
-  type          CardType
-  baseAtk       Int
-  baseHp        Int
-  cost          Int
-  staminaGrant  Int         @default(0)
-  movePattern   Json
-  evolucaoCurva Json
-  deckCards     DeckCard[]
-  fieldUnits    FieldUnit[]
-  createdAt     DateTime    @default(now())
+/// fácil = JAVASCRIPT, médio = TYPESCRIPT, difícil = CSHARP, extremo = C
+enum Language {
+  JAVASCRIPT
+  TYPESCRIPT
+  CSHARP
+  C
 }
 
-enum CardType {
-  UNIDADE
-  ESTRUTURA
-  FEITICO
-  SUPRIMENTO
+enum ChallengeDifficulty {
+  FACIL
+  MEDIO
+  DIFICIL
 }
 
-model Deck {
-  id     String     @id @default(uuid())
-  name   String
-  userId String
-  user   User       @relation(fields: [userId], references: [id])
-  cards  DeckCard[]
+/// Entidade principal do CRUD da disciplina — catálogo de algoritmos.
+model Challenge {
+  id            String              @id @default(uuid())
+  language      Language
+  difficulty    ChallengeDifficulty
+  title         String
+  prompt        String
+  helpSignature String
+  starterCode   String              @default("")
+  testCases     Json
+  isBonus       Boolean             @default(false)
+  points        Int                 @default(10)
+  createdAt     DateTime            @default(now())
+  layers        InvasionLayer[]
+  attempts      ChallengeAttempt[]
+
+  @@index([language, difficulty])
 }
 
-model DeckCard {
-  deckId String
-  cardId String
-  qty    Int    @default(1)
-  deck   Deck   @relation(fields: [deckId], references: [id])
-  card   Card   @relation(fields: [cardId], references: [id])
-
-  @@id([deckId, cardId])
+model Invasion {
+  id                 String              @id @default(uuid())
+  playerId           String
+  player             User                @relation(fields: [playerId], references: [id])
+  language           Language
+  status             InvasionStatus      @default(EM_ANDAMENTO)
+  currentLayer       Int                 @default(1)
+  playerIntegrity    Int                 @default(100)
+  rivalIntegrity     Int                 @default(100)
+  rivalDisabledUntil DateTime?
+  winnerSide         InvasionWinner?
+  score              Int                 @default(0)
+  startedAt          DateTime            @default(now())
+  endedAt            DateTime?
+  layers             InvasionLayer[]
+  attempts           ChallengeAttempt[]
+  chatMessages       ChatMessage[]
+  powerUpUses        PowerUpUse[]
 }
 
-model Match {
-  id              String      @id @default(uuid())
-  player1Id       String
-  player2Id       String?
-  isVsCpu         Boolean     @default(false)
-  player1CoreHp   Int         @default(20)
-  player2CoreHp   Int         @default(20)
-  player1Stamina  Int         @default(5)
-  player2Stamina  Int         @default(5)
-  player1DeckId   String? // sem FK: apenas referência informativa ao deck sorteado
-  player1Hand     Json        @default("[]") // ids de Card na mão atual do player1
-  player1DrawPile Json        @default("[]") // ids de Card embaralhados aguardando compra
-  winnerId        String?
-  status          MatchStatus @default(EM_ANDAMENTO)
-  startedAt       DateTime    @default(now())
-  endedAt         DateTime?
-  map             MatchMap?
-  units           FieldUnit[]
-  moves           MatchMove[]
-  aiProfile       AiProfile?
-}
-
-enum MatchStatus {
+enum InvasionStatus {
   EM_ANDAMENTO
   FINALIZADA
 }
 
-model MatchMap {
-  id         String    @id @default(uuid())
-  matchId    String    @unique
-  match      Match     @relation(fields: [matchId], references: [id])
-  templateId String
-  seed       String
-  nodes      MapNode[]
-  createdAt  DateTime  @default(now())
+enum InvasionWinner {
+  PLAYER
+  RIVAL
 }
 
-model MapNode {
-  id            String       @id @default(uuid())
-  matchMapId    String
-  matchMap      MatchMap     @relation(fields: [matchMapId], references: [id])
-  route         Route
-  subrouteType  SubrouteType
-  positionIndex Int
-  connections   Json
-  units         FieldUnit[]
+model InvasionLayer {
+  id          String     @id @default(uuid())
+  invasionId  String
+  invasion    Invasion   @relation(fields: [invasionId], references: [id])
+  layerNumber Int
+  challengeId String
+  challenge   Challenge  @relation(fields: [challengeId], references: [id])
+  clearedAt   DateTime?
+  miniGameWon Boolean?
+
+  @@unique([invasionId, layerNumber])
 }
 
-enum Route {
-  NORTE
-  CENTRAL
-  SUL
+model ChallengeAttempt {
+  id          String    @id @default(uuid())
+  invasionId  String
+  invasion    Invasion  @relation(fields: [invasionId], references: [id])
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+  code        String
+  passed      Boolean
+  judgeOutput String    @default("")
+  createdAt   DateTime  @default(now())
 }
 
-enum SubrouteType {
-  TREINAMENTO
-  DIRETA
+model ChatMessage {
+  id         String     @id @default(uuid())
+  invasionId String
+  invasion   Invasion   @relation(fields: [invasionId], references: [id])
+  sender     ChatSender
+  content    String
+  createdAt  DateTime   @default(now())
 }
 
-model FieldUnit {
-  id              String     @id @default(uuid())
-  matchId         String
-  match           Match      @relation(fields: [matchId], references: [id])
-  ownerId         String // sem FK: pode ser um User real ou o sentinel "CPU" (partida isVsCpu)
-  cardId          String
-  card            Card       @relation(fields: [cardId], references: [id])
-  currentNodeId   String
-  currentNode     MapNode    @relation(fields: [currentNodeId], references: [id])
-  hp              Int
-  atk             Int
-  level           Int        @default(1)
-  turnsInPosition Int        @default(0)
-  status          UnitStatus @default(VIVA)
+enum ChatSender {
+  PLAYER
+  RIVAL_AI
 }
 
-enum UnitStatus {
-  VIVA
-  MORTA
+model PowerUpUse {
+  id         String      @id @default(uuid())
+  invasionId String
+  invasion   Invasion    @relation(fields: [invasionId], references: [id])
+  type       PowerUpType
+  usedAt     DateTime    @default(now())
 }
 
-model MatchMove {
-  id         String         @id @default(uuid())
-  matchId    String
-  match      Match          @relation(fields: [matchId], references: [id])
-  turnNumber Int
-  unitId     String?
-  fromNodeId String?
-  toNodeId   String?
-  actionType MoveActionType
-  payload    Json
-  createdAt  DateTime       @default(now())
-}
-
-enum MoveActionType {
-  INVOCAR
-  MOVER
-  FEITICO
-  PASSAR_TURNO
-  ABASTECER
-}
-
-/**
- * Fase 4 / seção 8 do plano: perfil de observação do jogador humano, usado pela
- * CPU para recalcular pesos de decisão (heurística ponderada, não ML).
- */
-model AiProfile {
-  id           String          @id @default(uuid())
-  matchId      String          @unique
-  match        Match           @relation(fields: [matchId], references: [id])
-  observations AiObservation[]
-}
-
-model AiObservation {
-  id              String    @id @default(uuid())
-  aiProfileId     String
-  aiProfile       AiProfile @relation(fields: [aiProfileId], references: [id])
-  turnNumber      Int
-  featureSnapshot Json
-  createdAt       DateTime  @default(now())
+enum PowerUpType {
+  PROPAGANDA
+  DESCONEXAO
 }

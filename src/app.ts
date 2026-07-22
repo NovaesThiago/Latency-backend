@@ -6,9 +6,8 @@ import { swaggerSpec } from './config/swagger';
 import { AppError } from './middlewares/AppError';
 import { errorHandler } from './middlewares/errorHandler';
 import { authRoutes } from './routes/authRoutes';
-import { cardRoutes } from './routes/cardRoutes';
-import { deckRoutes } from './routes/deckRoutes';
-import { matchRoutes } from './routes/matchRoutes';
+import { challengeRoutes } from './routes/challengeRoutes';
+import { invasionRoutes } from './routes/invasionRoutes';
 
 export const app = express();
 
@@ -22,9 +21,8 @@ app.get('/health', (_req, res) => {
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/auth', authRoutes);
-app.use('/cards', cardRoutes);
-app.use('/decks', deckRoutes);
-app.use('/matches', matchRoutes);
+app.use('/challenges', challengeRoutes);
+app.use('/invasions', invasionRoutes);
 
 app.use((_req, _res, next) => {
   next(new AppError('Rota não encontrada', 404));

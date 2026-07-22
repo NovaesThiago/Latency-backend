@@ -5,7 +5,15 @@ export const userRepository = {
     return prisma.user.findUnique({ where: { email } });
   },
 
-  create(data: { email: string; passwordHash: string }) {
+  findById(id: string) {
+    return prisma.user.findUnique({ where: { id } });
+  },
+
+  findByNickname(nickname: string) {
+    return prisma.user.findUnique({ where: { nickname } });
+  },
+
+  create(data: { nickname: string; email: string; passwordHash: string }) {
     return prisma.user.create({ data });
   },
 };

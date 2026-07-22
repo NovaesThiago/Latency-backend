@@ -11,16 +11,23 @@ function signToken(userId: string, role: string): string {
 }
 
 export const authService = {
-  async register(email: string, password: string) {
-    const existing = await userRepository.findByEmail(email);
-    if (existing) {
+  async register(nickname: string, email: string, password: string) {
+    const existingEmail = await userRepository.findByEmail(email);
+    if (existingEmail) {
       throw new AppError('E-mail já cadastrado', 409);
+    }
+    const existingNickname = await userRepository.findByNickname(nickname);
+    if (existingNickname) {
+      throw new AppError('Nickname já em uso', 409);
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await userRepository.create({ email, passwordHash });
+    const user = await userRepository.create({ nickname, email, passwordHash });
 
-    return { token: signToken(user.id, user.role), user: { id: user.id, email: user.email, role: user.role } };
+    return {
+      token: signToken(user.id, user.role),
+      user: { id: user.id, nickname: user.nickname, email: user.email, role: user.role },
+    };
   },
 
   async login(email: string, password: string) {
@@ -34,6 +41,9 @@ export const authService = {
       throw new AppError('Credenciais inválidas', 401);
     }
 
-    return { token: signToken(user.id, user.role), user: { id: user.id, email: user.email, role: user.role } };
+    return {
+      token: signToken(user.id, user.role),
+      user: { id: user.id, nickname: user.nickname, email: user.email, role: user.role },
+    };
   },
 };

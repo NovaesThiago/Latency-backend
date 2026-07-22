@@ -1,121 +1,48 @@
-import { PrismaClient } from '@prisma/client';
+import { Language, Prisma, PrismaClient } from '@prisma/client';
+import { PROBLEMS } from './seedData/problems';
+import { SIGNATURES } from './seedData/signatures';
 
 const prisma = new PrismaClient();
 
-/**
- * Catálogo temático (seção do usuário: "personagens de guerra como ataques
- * cibernéticos"). Cada carta reaproveita um arquétipo militar clássico
- * remapeado para uma ameaça de rede real, com estatísticas que refletem o
- * papel tático (infantaria, flanqueador, tanque, artilharia, etc.).
- */
-const CARDS = [
-  {
-    name: 'Worm',
-    description:
-      'Um verme que se replica pela rede e avança devagar, mas sem parar — a infantaria da ciberguerra, barata e numerosa.',
-    type: 'UNIDADE' as const,
-    baseAtk: 2,
-    baseHp: 5,
-    cost: 2,
-    staminaGrant: 0,
-    movePattern: { tipo: 'linear', distancia: 1 },
-    evolucaoCurva: { '3': { atk: 1, hp: 1 } },
-  },
-  {
-    name: 'Exploit 0-Day',
-    description:
-      'Uma vulnerabilidade ainda não corrigida, explorada antes que qualquer defesa reaja — o flanqueador veloz e frágil da guerra digital.',
-    type: 'UNIDADE' as const,
-    baseAtk: 5,
-    baseHp: 2,
-    cost: 3,
-    staminaGrant: 0,
-    movePattern: { tipo: 'linear', distancia: 2 },
-    evolucaoCurva: { '2': { atk: 1 } },
-  },
-  {
-    name: 'Ransomware',
-    description:
-      'Malware pesado que sequestra sistemas inteiros e resiste a contra-ataques — o tanque de cerco da ciberguerra, lento porém devastador.',
-    type: 'UNIDADE' as const,
-    baseAtk: 6,
-    baseHp: 6,
-    cost: 5,
-    staminaGrant: 0,
-    movePattern: { tipo: 'linear', distancia: 1 },
-    evolucaoCurva: { '3': { atk: 2, hp: 2 } },
-  },
-  {
-    name: 'Firewall Sentinela',
-    description:
-      'Uma barreira de inspeção de pacotes que absorve ataques sem ceder posição — o guardião defensivo, alta resistência e pouco dano.',
-    type: 'UNIDADE' as const,
-    baseAtk: 1,
-    baseHp: 10,
-    cost: 4,
-    staminaGrant: 0,
-    movePattern: { tipo: 'linear', distancia: 1 },
-    evolucaoCurva: { '4': { hp: 3 } },
-  },
-  {
-    name: 'Honeypot',
-    description:
-      'Uma isca disfarçada de alvo fácil que atrai e desgasta o invasor — a armadilha barata que qualquer exército de rede carrega.',
-    type: 'UNIDADE' as const,
-    baseAtk: 1,
-    baseHp: 3,
-    cost: 2,
-    staminaGrant: 0,
-    movePattern: { tipo: 'linear', distancia: 1 },
-    evolucaoCurva: {},
-  },
-  {
-    name: 'Ataque DDoS',
-    description:
-      'Uma saturação coordenada de tráfego que derruba qualquer coisa em seu caminho — a artilharia de altíssimo dano e vida frágil.',
-    type: 'UNIDADE' as const,
-    baseAtk: 8,
-    baseHp: 1,
-    cost: 4,
-    staminaGrant: 0,
-    movePattern: { tipo: 'linear', distancia: 1 },
-    evolucaoCurva: {},
-  },
-  {
-    name: 'Patch Deployment Bot',
-    description:
-      'Um robô de implantação de correções que avança em formação organizada — o suporte tático, equilibrado entre ataque e resistência.',
-    type: 'UNIDADE' as const,
-    baseAtk: 3,
-    baseHp: 5,
-    cost: 3,
-    staminaGrant: 0,
-    movePattern: { tipo: 'linear', distancia: 1 },
-    evolucaoCurva: { '3': { atk: 1, hp: 1 } },
-  },
-  {
-    name: 'Cache de Energia',
-    description:
-      'Um nó de energia de reserva que recarrega seus sistemas — a carta de suprimento: não ataca, mas alimenta o resto do seu exército.',
-    type: 'SUPRIMENTO' as const,
-    baseAtk: 0,
-    baseHp: 0,
-    cost: 0,
-    staminaGrant: 4,
-    movePattern: {},
-    evolucaoCurva: {},
-  },
-];
+const LANGUAGES: Language[] = ['JAVASCRIPT', 'TYPESCRIPT', 'CSHARP', 'C'];
 
+/**
+ * Catálogo completo: 40 algoritmos (25 fáceis + 10 médios + 5 difíceis) × 4
+ * linguagens = 160 `Challenge`. Prompt/testCases vêm de `PROBLEMS` (iguais
+ * nas 4 linguagens); só o `helpSignature` muda, vindo de `SIGNATURES`.
+ * Id determinístico (`${language}-${índice}`) faz do upsert idempotente
+ * mesmo se o enunciado de um desafio for reescrito depois.
+ */
 async function main() {
-  for (const card of CARDS) {
-    await prisma.card.upsert({
-      where: { name: card.name },
-      create: card,
-      update: card,
-    });
+  let count = 0;
+
+  for (const language of LANGUAGES) {
+    const signatures = SIGNATURES[language];
+
+    for (const [index, problem] of PROBLEMS.entries()) {
+      const id = `${language}-${String(index).padStart(2, '0')}`;
+      const data = {
+        language,
+        difficulty: problem.difficulty,
+        title: problem.title,
+        prompt: problem.prompt,
+        helpSignature: signatures[index],
+        starterCode: '',
+        testCases: problem.testCases as unknown as Prisma.InputJsonValue,
+        isBonus: problem.isBonus,
+        points: problem.points,
+      };
+
+      await prisma.challenge.upsert({
+        where: { id },
+        create: { id, ...data },
+        update: data,
+      });
+      count += 1;
+    }
   }
-  console.log(`Catálogo semeado: ${CARDS.length} cartas.`);
+
+  console.log(`Catálogo semeado: ${count} desafios (${PROBLEMS.length} algoritmos × ${LANGUAGES.length} linguagens).`);
 }
 
 main()
@@ -123,4 +50,6 @@ main()
     console.error(err);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
