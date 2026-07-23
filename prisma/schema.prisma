@@ -5,6 +5,11 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Neon usa pooling (PgBouncer) na connection string padrão — `prisma
+  // migrate deploy` roda DDL que precisa de uma conexão direta (sem pool),
+  // senão falha/trava no deploy. DIRECT_URL é opcional em dev local (sem
+  // pooler, pode apontar pra mesma URL) mas obrigatória no Render/Neon.
+  directUrl = env("DIRECT_URL")
 }
 
 model User {

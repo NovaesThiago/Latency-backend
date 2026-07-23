@@ -28,8 +28,11 @@ npm run dev
 
 ## Deploy (Render + Neon)
 
-1. Criar um projeto no [Neon](https://neon.tech), copiar a connection string **pooled** e usar como `DATABASE_URL` (adicionar `?sslmode=require`).
+1. Criar um projeto no [Neon](https://neon.tech). Copiar **as duas** connection strings da aba "Connection Details":
+   - a **pooled** (com `-pooler` no host) → `DATABASE_URL`, usada em runtime pelas queries do app.
+   - a **direct** (sem `-pooler`) → `DIRECT_URL`, usada só pelo `prisma migrate deploy` (migração roda DDL, que não funciona de forma confiável através do pooler/PgBouncer do Neon).
+   Em ambas, garantir `?sslmode=require` no final.
 2. Criar um Web Service no [Render](https://render.com) apontando para este repositório — o `render.yaml` já declara build (`npm install && npm run build && npx prisma migrate deploy && npm run db:seed`) e start (`npm start`).
-3. Preencher no painel do Render as variáveis `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN` (URL exata do frontend no Vercel, nunca `*`) e `ANTHROPIC_API_KEY` (sem ela a IA do rival cai automaticamente nas falas pré-escritas, mas fica repetitiva).
+3. Preencher no painel do Render as variáveis `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CORS_ORIGIN` (URL exata do frontend no Vercel, nunca `*`) e `ANTHROPIC_API_KEY` (sem ela a IA do rival cai automaticamente nas falas pré-escritas, mas fica repetitiva).
 4. `JUDGE0_URL` já vem preenchido com a instância pública `ce.judge0.com` — só trocar se for hospedar a própria.
 5. O Render free tier "dorme" após inatividade — fazer uma requisição de aquecimento em `/health` antes de qualquer demo ao vivo.
