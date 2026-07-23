@@ -37,9 +37,17 @@ export async function judgeChallenge(
       };
     }
     if (normalize(result.stdout) !== normalize(testCase.expectedOutput)) {
+      // Saída vazia é quase sempre o jogador só definindo a função (seguindo
+      // a assinatura do modo ajuda) sem ler stdin/imprimir o resultado — sem
+      // essa dica a mensagem "Esperado: X / Recebido: " lê como se o judge
+      // exigisse um valor mágico fixo, não que falta código de entrada/saída.
+      const emptyOutputHint =
+        normalize(result.stdout) === ''
+          ? '\n(nenhuma saída impressa — confira se seu código lê os valores de stdin e usa console.log/print/printf/Console.WriteLine pra imprimir o resultado; a assinatura do modo ajuda é só a lógica, o programa completo precisa ler a entrada e imprimir a saída)'
+          : '';
       return {
         passed: false,
-        message: `Caso ${index + 1} falhou.\nEsperado: ${testCase.expectedOutput}\nRecebido: ${normalize(result.stdout)}`,
+        message: `Caso ${index + 1} falhou.\nEsperado: ${testCase.expectedOutput}\nRecebido: ${normalize(result.stdout)}${emptyOutputHint}`,
       };
     }
   }
