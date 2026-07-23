@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: latency-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ciberguerra
+      POSTGRES_PASSWORD: ciberguerra
+      POSTGRES_DB: ciberguerra
+    ports:
+      - "5432:5432"
+    volumes:
+      - latency-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ciberguerra -d ciberguerra"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  latency-db-data:

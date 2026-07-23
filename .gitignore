@@ -2,3 +2,6 @@ node_modules/
 dist/
 .env
 *.log
+
+# build cache do tsc (local, nao precisa versionar)
+*.tsbuildinfo
